@@ -1,0 +1,24 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: ./app/Dockerfile
+    env_file:
+      - .env
+    command: uvicorn app.main:app --host 0.0.0.0
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+  db:
+    image: postgres:16
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Задаём переменные окружения для инициализации БД и пользователя
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+
+volumes:
+ postgres_data:
