@@ -28,6 +28,6 @@ api_router.include_router(orders.router)
 
 app.include_router(api_router)
 
-@app.get('/')
+@app.get('/api')
 async def get_page() -> dict:
     return {'detail': "Welcome to store forged with FastAPI"}
