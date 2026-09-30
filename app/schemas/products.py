@@ -23,10 +23,10 @@ class ProductCreate(BaseModel):
     @classmethod
     def as_form(
             cls,
-            name: Annotated[str, Form(...)],
-            price: Annotated[Decimal, Form(...)],
-            stock: Annotated[int, Form(...)],
-            category_id: Annotated[int, Form(...)],
+            name: Annotated[str, Form(min_length=3, max_length=100)],
+            price: Annotated[Decimal, Form(gt=0)],
+            stock: Annotated[int, Form(ge=0)],
+            category_id: Annotated[int, Form()],
             description: Annotated[str | None, Form()] = None,
     ) -> "ProductCreate":
         return cls(
@@ -50,6 +50,7 @@ class Product(BaseModel):
     image_url: str | None = Field(None, description="URL изображения товара")
     stock: int = Field(..., description="Количество товара на складе")
     category_id: int = Field(..., description="ID категории")
+    seller_id: int = Field(..., description="ID продавца")
     is_active: bool = Field(..., description="Активность товара")
     rating: Decimal = Field(..., description="Средняя оценка товара", json_schema_extra={"example": 3.85})
 

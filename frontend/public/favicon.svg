@@ -1,0 +1,25 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 64 64"
+>
+  <rect
+    width="64"
+    height="64"
+    rx="16"
+    fill="#4bab9b"
+  />
+
+  <text
+    x="31"
+    y="46"
+    text-anchor="middle"
+    font-family="Nunito Sans, Arial, sans-serif"
+    font-size="39"
+    font-weight="900"
+    font-style="italic"
+    letter-spacing="-2"
+    fill="#ffffff"
+  >
+    FS
+  </text>
+</svg>

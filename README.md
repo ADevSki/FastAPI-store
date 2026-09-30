@@ -6,3 +6,4 @@
 1) SECRET_KEY - генерируем командой "openssl rand -hex 32"
 2) DATABASE_URL - postgresql+asyncpg://*user*:*password*@*address*:*port*/*DATABASE_name*
 Пример есть в .env.example
+3) в main.py в allow_origins указать нужный адрес.

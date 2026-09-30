@@ -15,51 +15,18 @@ from app.schemas.reviews import Review as ReviewSchema
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
+from sqlalchemy.orm import selectinload
 
 from app.queries.selector import check_active_product, check_active_category
+from app.services.images_service import save_product_image, remove_product_image
 
-from app.auth import get_current_role
+from app.auth import get_current_user
 
 # Создаём маршрутизатор для товаров
 router = APIRouter(
     prefix="/products",
     tags=["products"],
 )
-
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-MEDIA_ROOT = BASE_DIR / "media" / "products"
-MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
-MAX_IMAGE_SIZE = 2 * 1024 * 1024  # 2 097 152 байт ~ 2мб
-
-async def save_product_image(file: UploadFile) -> str:
-    """
-    Сохраняет изображение товара и возвращает относительный URL.
-    """
-    if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Only JPG, PNG or WebP images are allowed")
-
-    content = await file.read()
-    if len(content) > MAX_IMAGE_SIZE:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Image is too large")
-
-    extension = Path(file.filename or "").suffix.lower() or ".jpg"
-    file_name = f"{uuid.uuid4()}{extension}"
-    file_path = MEDIA_ROOT / file_name
-    file_path.write_bytes(content)
-
-    return f"/media/products/{file_name}"
-
-def remove_product_image(url: str | None) -> None:
-    """
-    Удаляет файл изображения, если он существует.
-    """
-    if not url:
-        return
-    relative_path = url.lstrip("/")
-    file_path = BASE_DIR / relative_path
-    if file_path.exists():
-        file_path.unlink()
 
 @router.get("/", response_model=ProductList)
 async def get_all_products(
@@ -129,6 +96,7 @@ async def get_all_products(
         "total": total,
         "page": request.page,
         "page_size": request.page_size,
+        #"seller_id": items.seller_id,
     }
 
 
@@ -137,7 +105,7 @@ async def create_product(
         product: ProductCreate = Depends(ProductCreate.as_form),
         image: UploadFile | None = File(None),
         db: AsyncSession = Depends(get_async_db),
-        current_user: UserModel = Depends(get_current_role("seller"))
+        current_user: UserModel = Depends(get_current_user)
 ):
     """
     Создаёт новый товар, привязанный к текущему продавцу(Только для ролей 'seller').
@@ -145,7 +113,7 @@ async def create_product(
 
     await check_active_category(product.category_id, db)
 
-    image_url = await save_product_image(image) if image else None
+    image_url = await save_product_image("products", image) if image else None
     new_product = ProductModel(
         **product.model_dump(),
         seller_id=current_user.id,
@@ -185,7 +153,7 @@ async def update_product(
         product: ProductCreate = Depends(ProductCreate.as_form),
         image: UploadFile | None = File(None),
         db: AsyncSession = Depends(get_async_db),
-        current_user: UserModel = Depends(get_current_role("seller"))
+        current_user: UserModel = Depends(get_current_user)
 ):
     """
     Обновляет товар по его ID.
@@ -199,7 +167,7 @@ async def update_product(
 
     if image:
         remove_product_image(updated_product.image_url)
-        updated_product.image_url = await save_product_image(image)
+        updated_product.image_url = await save_product_image("products", image)
     await db.commit()
     await db.refresh(updated_product)
     return updated_product
@@ -209,7 +177,7 @@ async def update_product(
 async def delete_product(
         product_id: int,
         db: AsyncSession = Depends(get_async_db),
-        current_user: UserModel = Depends(get_current_role("seller"))
+        current_user: UserModel = Depends(get_current_user)
 ):
     """
     Удаляет товар по его ID.
@@ -231,8 +199,25 @@ async def delete_product(
 async def get_product_reviews(product_id: int, db: AsyncSession = Depends(get_async_db)):
     """Получить все отзывы по продукту."""
     await check_active_product(product_id, db)
-    results = await db.scalars(
-        select(ReviewModel).where(ReviewModel.product_id == product_id, ReviewModel.is_active == True)
+    results = await  db.scalars(
+        select(ReviewModel)
+        .options(selectinload(ReviewModel.user))
+        .where(
+            ReviewModel.product_id == product_id,
+            ReviewModel.is_active == True
+        )
     )
     reviews = results.all()
-    return reviews
+    return [
+        {
+            "id": review.id,
+            "user_id": review.user_id,
+            "product_id": review.product_id,
+            "username": review.user.username,
+            "comment": review.comment,
+            "comment_date": review.comment_date,
+            "grade": review.grade,
+            "is_active": review.is_active,
+        }
+        for review in reviews
+    ]

@@ -40,7 +40,9 @@ services:
 
   nginx:
     # Собираем образ nginx из локальной директории nginx
-    build: nginx
+    build:Nf
+      context: .
+      dockerfile: ./nginx/Dockerfile
     # Монтируем том media_data в /var/www/media контейнера для доступа к медиафайлам
     volumes:
       - media_data:/var/www/media

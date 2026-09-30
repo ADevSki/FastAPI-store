@@ -11,6 +11,7 @@ class Review(BaseModel):
     id: int
     user_id: int
     product_id: int
+    username: str
     comment: str
     comment_date: datetime
     grade: int

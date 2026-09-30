@@ -40,26 +40,41 @@ async def create_review(
     #Проверяем, что продукт существует и активен.
     product = await check_active_product(review.product_id, db)
 
+    #Проверяем, что текущий пользователь не является продавцом данного товара
+    if product.seller_id == current_user.id:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Вы не можете оставлять отзыв на свой товар!!")
+
     #Проверяем, оставлял ли текущий пользователь отзыв на данный товар
     already_use: ReviewModel | None = await db.scalar(
         select(ReviewModel)
-        .where(ReviewModel.product_id == product.id,
-               ReviewModel.user_id == current_user.id)
+        .where(
+            ReviewModel.product_id == product.id,
+            ReviewModel.user_id == current_user.id,
+            ReviewModel.is_active == True,
+        )
     )
     if already_use is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Review already exist!")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Вы уже оставляли отзыв на этот товар!")
 
     #Добавляем отзыв в БД.
     new_review = ReviewModel(**review.model_dump(), user_id=current_user.id)
     db.add(new_review)
     await db.flush()
-
     #Получаем среднее значение grade для продукта, после добавления отзыва
     product.rating = await get_avg_rating(product.id, db)
 
     await db.commit()
     await db.refresh(new_review)
-    return new_review
+    return {
+        "id": new_review.id,
+        "user_id": new_review.user_id,
+        "product_id": new_review.product_id,
+        "username": new_review.user.username,
+        "comment": new_review.comment,
+        "comment_date": new_review.comment_date,
+        "grade": new_review.grade,
+        "is_active": new_review.is_active,
+    }
 
 @router.delete("/{review_id}", response_model=ReviewSchema)
 async def delete_review(
@@ -95,4 +110,13 @@ async def delete_review(
 
     await db.commit()
     await db.refresh(review)
-    return review
+    return {
+        "id": review.id,
+        "user_id": review.user_id,
+        "product_id": review.product_id,
+        "username": review.user.username,
+        "comment": review.comment,
+        "comment_date": review.comment_date,
+        "grade": review.grade,
+        "is_active": review.is_active,
+    }

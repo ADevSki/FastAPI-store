@@ -56,9 +56,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme),
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str | None = payload.get('sub')
+        username: str | None = payload.get('sub')
         token_type: str | None = payload.get('token_type')
-        if email is None:
+        if username is None:
             raise credentials_exception()
         if token_type != 'access':
             raise credentials_exception('Invalid token type')
@@ -67,7 +67,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme),
     except jwt.PyJWTError:
         raise credentials_exception()
     user: UserModel | None = await db.scalar(
-        select(UserModel).where(UserModel.email == email, UserModel.is_active == True))
+        select(UserModel).where(UserModel.username == username, UserModel.is_active == True))
     if user is None:
         raise credentials_exception('User not found or inactive')
     return user

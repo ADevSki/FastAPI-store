@@ -48,6 +48,7 @@ async def get_cart(
         db: AsyncSession = Depends(get_async_db),
         current_user: UserModel = Depends(get_current_user)
 ):
+    """Получить корзину пользователя"""
     result = await db.scalars(
         select(CartItemModel)
         .options(selectinload(CartItemModel.product))
@@ -77,10 +78,16 @@ async def add_item_to_cart(
         db: AsyncSession = Depends(get_async_db),
         current_user: UserModel = Depends(get_current_user)
 ):
+    """Добавить товар в корзину пользователя"""
     product = await check_active_product(payload.product_id, db)
-    if product.stock < payload.quantity:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This quantity of the product is not available.")
-    cart_item: CartItemModel = await _get_cart_item(db, current_user.id, payload.product_id)
+    cart_item: CartItemModel = await _get_cart_item(
+        db, current_user.id,
+        payload.product_id
+    )
+    current_quantity = cart_item.quantity if cart_item else 0
+    if product.stock < current_quantity + payload.quantity:
+        raise HTTPException(status_code=400, detail="Требуемое количество товара недоступно!")
+
     if cart_item:
         cart_item.quantity += payload.quantity
     else:
@@ -98,6 +105,7 @@ async def update_cart_item(
     db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user),
 ):
+    """Обновить корзину пользователя"""
     product = await check_active_product(product_id, db)
     if product.stock < payload.quantity:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This quantity of the product is not available.")
@@ -117,6 +125,7 @@ async def remove_item_from_cart(
     db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user),
 ):
+    """Удалить товар из корзины пользователя"""
     cart_item = await _get_cart_item(db, current_user.id, product_id)
     if not cart_item:
         raise HTTPException(status_code=404, detail="Cart item not found")
@@ -130,6 +139,7 @@ async def clear_cart(
     db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user),
 ):
+    """Удалить все товары из корзины пользователя"""
     await db.execute(delete(CartItemModel).where(CartItemModel.user_id == current_user.id))
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
